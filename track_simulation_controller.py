@@ -83,7 +83,9 @@ def calculate_midpoint(point_a: Point, point_b: Point) -> Point:
     mid_point = geodesic(meters=distance / 2).destination(point=point_a, bearing=bearing)
     return mid_point
 
-def interpolate_straight(p1: Point, p2: Point, step_meters: float) -> (list, float):
+def interpolate_straight(
+    p1: Point, p2: Point, step_meters: float
+) -> tuple[list[tuple[Point, float]], float]:
     """
     (新) 在两个点之间生成直线路径点。
     返回 (点列表[(Point, bearing)], 总长度)。
@@ -101,7 +103,12 @@ def interpolate_straight(p1: Point, p2: Point, step_meters: float) -> (list, flo
     points.append((p2, bearing)) # (新) 存储 (点, 方向)
     return points, total_distance
 
-def interpolate_arc(p_start: Point, p_end: Point, step_meters: float, arc_degrees_total: float) -> (list, float):
+def interpolate_arc(
+    p_start: Point,
+    p_end: Point,
+    step_meters: float,
+    arc_degrees_total: float
+) -> tuple[list[tuple[Point, float]], float]:
     """
     (新) 重写了圆弧插值函数，支持自定义角度。
     返回 (点列表[(Point, bearing)], 总长度)。
@@ -480,7 +487,7 @@ class TrackSimulatorApp:
         
         # (新) 修复布局
         ttk.Label(path_frame, text="雷电模拟器安装目录:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
-        self.ld_folder_path = tk.StringVar()
+        self.ld_folder_path = tk.StringVar(value="D:/Program Files/leidian/LDPlayer14")
         self.ld_folder_entry = ttk.Entry(path_frame, textvariable=self.ld_folder_path, width=40) # (新) 固定宽度
         self.ld_folder_entry.grid(row=0, column=1, columnspan=2, sticky="ew", padx=5, pady=5) # (新) 合并单元格
         ttk.Button(path_frame, text="浏览...", command=self.browse_ld_folder).grid(row=0, column=3, padx=5, pady=5)
@@ -559,12 +566,12 @@ class TrackSimulatorApp:
         pace_smooth_frame = ttk.Labelframe(self.scrollable_frame, text="平滑配速 (反作弊)", padding="5")
         pace_smooth_frame.pack(fill="x", expand=True, pady=5)
         
-        self.random_pace_var = tk.BooleanVar(value=False)
+        self.random_pace_var = tk.BooleanVar(value=True)
         self.random_pace_check = ttk.Checkbutton(pace_smooth_frame, text="启用平滑配速", variable=self.random_pace_var, command=self.toggle_pace_entries)
         self.random_pace_check.grid(row=0, column=0, sticky="w", padx=10, pady=5)
         
         ttk.Label(pace_smooth_frame, text="基础配速 (分钟/公里):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.pace_minkm = tk.StringVar(value="6.0")
+        self.pace_minkm = tk.StringVar(value="5.5")
         self.pace_entry = ttk.Entry(pace_smooth_frame, textvariable=self.pace_minkm, width=10)
         self.pace_entry.grid(row=1, column=1, padx=5, pady=5)
         
@@ -574,7 +581,7 @@ class TrackSimulatorApp:
         self.variability_entry.grid(row=2, column=1, padx=5, pady=5)
         
         ttk.Label(pace_smooth_frame, text="变化平滑度 (秒):").grid(row=3, column=0, sticky="w", padx=5, pady=5)
-        self.smoothness_var = tk.StringVar(value="30")
+        self.smoothness_var = tk.StringVar(value="27")
         self.smoothness_entry = ttk.Entry(pace_smooth_frame, textvariable=self.smoothness_var, width=10)
         self.smoothness_entry.grid(row=3, column=1, padx=5, pady=5)
 
@@ -598,17 +605,17 @@ class TrackSimulatorApp:
         random_frame = ttk.Labelframe(self.scrollable_frame, text="随机偏移 (GPS 噪声)", padding="5")
         random_frame.pack(fill="x", expand=True, pady=(0, 10))
         
-        self.random_offset_var = tk.BooleanVar(value=False)
+        self.random_offset_var = tk.BooleanVar(value=True)
         self.random_offset_check = ttk.Checkbutton(random_frame, text="启用随机偏移", variable=self.random_offset_var, command=self.toggle_random_offset_entries)
         self.random_offset_check.grid(row=0, column=0, sticky="w", padx=5, pady=5)
 
         ttk.Label(random_frame, text="偏移几率 (%):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.random_offset_chance = tk.StringVar(value="20")
+        self.random_offset_chance = tk.StringVar(value="13")
         self.random_offset_chance_entry = ttk.Entry(random_frame, textvariable=self.random_offset_chance, width=10)
         self.random_offset_chance_entry.grid(row=1, column=1, padx=5, pady=5)
         
         ttk.Label(random_frame, text="左/右最大偏移 (米):").grid(row=1, column=2, sticky="w", padx=5, pady=5)
-        self.random_offset_range = tk.StringVar(value="1.5")
+        self.random_offset_range = tk.StringVar(value="0.8")
         self.random_offset_range_entry = ttk.Entry(random_frame, textvariable=self.random_offset_range, width=10)
         self.random_offset_range_entry.grid(row=1, column=3, padx=5, pady=5)
 
@@ -1039,27 +1046,31 @@ class TrackSimulatorApp:
         try:
             with open(CONFIG_FILE, 'r') as f:
                 data = json.load(f)
-                self.ld_folder_path.set(data.get("ld_folder_path", ""))
+                self.ld_folder_path.set(
+                    data.get("ld_folder_path", "D:/Program Files/leidian/LDPlayer14")
+                )
                 self.offset_ns.set(data.get("offset_ns", "0.0"))
                 self.offset_ew.set(data.get("offset_ew", "0.0"))
-                self.preset_var.set(data.get("last_preset", "大连操场 (修正后)"))
+                self.preset_var.set(data.get("last_preset", "CUHKSZ(Lower Campus)"))
                 
                 # (新) 加载最后位置
-                self.last_known_location = data.get("last_known_location", None)
+                self.last_known_location = data.get(
+                    "last_known_location", [22.687253, 114.204035]
+                )
                 if self.last_known_location:
                     # (新) 默认勾选
                     self.start_from_last_pos_var.set(True)
                 
                 # (新) 加载随机设置
-                self.random_offset_var.set(data.get("use_random_offset", False))
-                self.random_offset_chance.set(data.get("random_offset_chance", "20"))
-                self.random_offset_range.set(data.get("random_offset_range", "1.5"))
+                self.random_offset_var.set(data.get("use_random_offset", True))
+                self.random_offset_chance.set(data.get("random_offset_chance", "13"))
+                self.random_offset_range.set(data.get("random_offset_range", "0.8"))
                 
                 # (新) 加载配速设置
-                self.random_pace_var.set(data.get("use_random_pace", False))
-                self.pace_minkm.set(data.get("base_pace", "6.0"))
+                self.random_pace_var.set(data.get("use_random_pace", True))
+                self.pace_minkm.set(data.get("base_pace", "5.5"))
                 self.variability_var.set(data.get("pace_variability", "0.2"))
-                self.smoothness_var.set(data.get("pace_smoothness", "30"))
+                self.smoothness_var.set(data.get("pace_smoothness", "27"))
 
                 self.settings_loaded = True # 标记已加载
         except FileNotFoundError:
