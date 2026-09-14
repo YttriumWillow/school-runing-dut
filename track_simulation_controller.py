@@ -11,6 +11,11 @@ import queue  # 导入队列库，用于线程安全通信
 import os     # 导入 os 库用于拼接路径
 import json   # 导入 json 用于保存/加载设置
 
+# 配置文件路径固定为脚本所在目录，避免从其他工作目录启动时读取失败
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(BASE_DIR, "track_sim_config.json")
+AREAS_FILE = os.path.join(BASE_DIR, "areas.json")
+
 # (新) 导入 psutil 用于自动检测
 try:
     import psutil
@@ -19,30 +24,35 @@ except ImportError:
     print("请运行 'pip install psutil' 来启用自动检测模拟器目录功能。")
     psutil = None
 
-# 配置文件名
-CONFIG_FILE = "track_sim_config.json"
+def load_presets():
+    """从脚本同目录的 areas.json 加载坐标预设。"""
+    try:
+        with open(AREAS_FILE, "r", encoding="utf-8") as file:
+            presets = json.load(file)
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"未找到坐标预设文件: {AREAS_FILE}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"坐标预设文件格式错误: {AREAS_FILE}: {exc}") from exc
 
-# (新) 预设坐标
-PRESETS = {
-    "大连操场 (修正后)": {
-        # (新) P3, P4 再向西偏移 2m
-        'p1_lat': '39.085047', 'p1_lon': '121.808643',
-        'p2_lat': '39.085982', 'p2_lon': '121.808690',
-        'p3_lat': '39.085983', 'p3_lon': '121.807805', # -2m
-        'p4_lat': '39.085047', 'p4_lon': '121.807766', # -2m
-        'offset_ns': '0.0', # 已修正，偏移归零
-        'offset_ew': '0.0'
-    },
-    "大连操场 (原始偏移)": {
-        # 这是你图片中的原始坐标 (已修复P3的纬度)
-        'p1_lat': '39.092370', 'p1_lon': '121.820042',
-        'p2_lat': '39.093305', 'p2_lon': '121.820043',
-        'p3_lat': '39.093306', 'p3_lon': '121.819170', # (Bug 修复)
-        'p4_lat': '39.092370', 'p4_lon': '121.819177',
-        'offset_ns': '0.0', 
-        'offset_ew': '0.0'
+    if not isinstance(presets, dict) or not presets:
+        raise ValueError("坐标预设文件必须是非空 JSON 对象。")
+
+    required_fields = {
+        "p1_lat", "p1_lon", "p2_lat", "p2_lon",
+        "p3_lat", "p3_lon", "p4_lat", "p4_lon"
     }
-}
+    for name, preset in presets.items():
+        if not isinstance(name, str) or not isinstance(preset, dict):
+            raise ValueError("坐标预设格式错误：名称必须是字符串，内容必须是对象。")
+        missing_fields = required_fields - preset.keys()
+        if missing_fields:
+            missing = ", ".join(sorted(missing_fields))
+            raise ValueError(f"坐标预设“{name}”缺少字段: {missing}")
+
+    return presets
+
+
+PRESETS = load_presets()
 
 
 # -----------------------------------------------------------------
@@ -148,7 +158,7 @@ def interpolate_arc(p_start: Point, p_end: Point, step_meters: float, arc_degree
 
 
 # -----------------------------------------------------------------
-# 模拟器控制线程 (使用 dnconsole locate)
+# 模拟器控制线程 (使用 LDPlayer ldconsole API)
 # -----------------------------------------------------------------
 
 # 用于通知线程停止/暂停的事件
@@ -156,31 +166,62 @@ stop_simulation_event = threading.Event()
 pause_event = threading.Event() # 用于暂停
 skip_wait_event = threading.Event() # 用于立即跳过等待
 
+
+def _find_ldconsole_path(ld_folder_path):
+    """查找雷电模拟器 14 的控制台程序。"""
+    for executable_name in ("ldconsole.exe", "dnconsole.exe"):
+        executable_path = os.path.join(ld_folder_path, executable_name)
+        if os.path.isfile(executable_path):
+            return executable_path
+    raise FileNotFoundError(
+        f"在目录中未找到 ldconsole.exe（雷电模拟器 14 控制台程序）: {ld_folder_path}"
+    )
+
+
+def _create_hidden_startupinfo():
+    """创建 Windows 下隐藏控制台窗口的启动参数。"""
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = subprocess.SW_HIDE
+    return startupinfo
+
+
+def _set_emulator_location(console_exe_path, emulator_index, lat, lon, startupinfo):
+    """通过 LDPlayer ldconsole 的 locate API 设置经纬度（参数顺序为经度,纬度）。"""
+    command = [
+        console_exe_path,
+        "locate",
+        "--index", str(emulator_index),
+        "--LLI", f"{lon},{lat}"
+    ]
+    result = subprocess.run(
+        command,
+        startupinfo=startupinfo,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=15
+    )
+    if result.returncode != 0:
+        details = (result.stderr or result.stdout).strip()
+        raise RuntimeError(
+            f"locate API 执行失败（退出码 {result.returncode}）"
+            + (f": {details}" if details else "")
+        )
+
+
 # (新) 用于手动控制的辅助函数
 def _send_manual_location(app, lat, lon):
     """ (新) 在单独的线程中发送单个 locate 命令以避免 GUI 阻塞 """
     try:
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        startupinfo.wShowWindow = subprocess.SW_HIDE
-        
+        startupinfo = _create_hidden_startupinfo()
         ld_folder_path = app.ld_folder_path.get()
         emulator_index = app.emulator_index.get()
-        
-        console_exe_path = os.path.join(ld_folder_path, "dnconsole.exe")
-        if not os.path.exists(console_exe_path):
-            console_exe_path = os.path.join(ld_folder_path, "ldconsole.exe")
-            if not os.path.exists(console_exe_path):
-                raise FileNotFoundError("未找到 dnconsole.exe 或 ldconsole.exe")
-
-        lli_arg = f"{lon},{lat}"
-        command = [
-            console_exe_path,
-            "locate",
-            "--index", str(emulator_index),
-            "--LLI", lli_arg
-        ]
-        subprocess.run(command, startupinfo=startupinfo, capture_output=True, text=True, encoding='utf-8')
+        console_exe_path = _find_ldconsole_path(ld_folder_path)
+        _set_emulator_location(
+            console_exe_path, emulator_index, lat, lon, startupinfo
+        )
         
         # 更新 GUI
         app.status_label.config(text=f"手动移动到: {lat:.6f}, {lon:.6f}")
@@ -193,7 +234,7 @@ def _send_manual_location(app, lat, lon):
 def run_simulation_thread(status_queue, app, ld_folder_path, emulator_index, points_list, pace_info, step_m, random_offset_info):
     """
     在单独的线程中运行模拟。
-    仅使用 dnconsole/ldconsole。
+    使用雷电模拟器 14 的 ldconsole API。
     """
     
     # (新) 存储“归位”点
@@ -203,20 +244,14 @@ def run_simulation_thread(status_queue, app, ld_folder_path, emulator_index, poi
         total_points = len(points_list)
         
         # 隐藏命令行窗口
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        startupinfo.wShowWindow = subprocess.SW_HIDE
+        startupinfo = _create_hidden_startupinfo()
         
         # --- 自动启动模拟器 (可跳过) ---
         if not ld_folder_path:
              raise Exception("请提供雷电模拟器安装目录。")
              
-        # 1. 查找控制台程序
-        console_exe_path = os.path.join(ld_folder_path, "dnconsole.exe")
-        if not os.path.exists(console_exe_path):
-            console_exe_path = os.path.join(ld_folder_path, "ldconsole.exe")
-            if not os.path.exists(console_exe_path):
-                raise FileNotFoundError(f"在目录中未找到 dnconsole.exe 或 ldconsole.exe: {ld_folder_path}")
+        # 1. 查找雷电模拟器 14 控制台程序
+        console_exe_path = _find_ldconsole_path(ld_folder_path)
         
         initial_skip = skip_wait_event.is_set()
         
@@ -225,7 +260,16 @@ def run_simulation_thread(status_queue, app, ld_folder_path, emulator_index, poi
             status_queue.put(("STATUS", f"正在启动模拟器 (索引 {emulator_index})...", "blue"))
             launch_command = [console_exe_path, "launch", "--index", str(emulator_index)]
             # (新) 使用 Popen 启动后不管，不阻塞线程
-            subprocess.Popen(launch_command, startupinfo=startupinfo, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            launch_process = subprocess.Popen(
+                launch_command,
+                startupinfo=startupinfo,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            if launch_process.poll() is not None and launch_process.returncode != 0:
+                raise RuntimeError(
+                    f"无法启动雷电模拟器实例（退出码 {launch_process.returncode}）"
+                )
                  
             # 3. (新) 可跳过的等待
             status_queue.put(("ENABLE_SKIP", True, None)) # 启用“跳过等待”按钮
@@ -329,19 +373,10 @@ def run_simulation_thread(status_queue, app, ld_folder_path, emulator_index, poi
             lon = final_point.longitude
             lat = final_point.latitude
             
-            # 准备 LLI 参数: <Lng,Lat>
-            lli_arg = f"{lon},{lat}"
-            
-            # 准备命令
-            command = [
-                console_exe_path,
-                "locate",
-                "--index", str(emulator_index),
-                "--LLI", lli_arg
-            ]
-
-            # 执行 GPS 命令
-            subprocess.run(command, startupinfo=startupinfo, capture_output=True, text=True, encoding='utf-8')
+            # 执行 LDPlayer 14 GPS 定位 API（接口要求经度在前、纬度在后）
+            _set_emulator_location(
+                console_exe_path, emulator_index, lat, lon, startupinfo
+            )
             
             # 6. 更新GUI
             if i % 10 == 0: 

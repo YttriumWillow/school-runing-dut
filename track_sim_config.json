@@ -1,17 +1,17 @@
 {
-    "ld_folder_path": "D:/run/LDPlayer9",
+    "ld_folder_path": "D:/Program Files/leidian/LDPlayer14",
     "offset_ns": "0.0",
     "offset_ew": "0.0",
-    "last_preset": "\u5927\u8fde\u64cd\u573a (\u4fee\u6b63\u540e)",
+    "last_preset": "CUHKSZ(Lower Campus)",
     "last_known_location": [
-        39.085047,
-        121.808643
+        22.687253,
+        114.204035
     ],
     "use_random_offset": true,
-    "random_offset_chance": "20",
-    "random_offset_range": "1.5",
+    "random_offset_chance": "13",
+    "random_offset_range": "0.8",
     "use_random_pace": true,
     "base_pace": "5.5",
     "pace_variability": "0.2",
-    "pace_smoothness": "30"
+    "pace_smoothness": "27"
 }

@@ -6,6 +6,7 @@
 # 常见的虚拟环境名称
 venv/
 env/
+.venv/
 
 # 3. Python 缓存文件和编译产物
 __pycache__/
