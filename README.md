@@ -113,7 +113,9 @@ ldconsole.exe locate --index <模拟器索引> --LLI <经度>,<纬度>
 
 ## 坐标预设：`areas.json`
 
-`areas.json` 必须和 `track_simulation_controller.py` 位于同一目录。程序启动时会读取它，并校验文件必须是非空 JSON 对象，且每个预设至少包含以下字段：
+`areas.json` 应和 `track_simulation_controller.py` 位于同一目录。程序启动时会读取它，并校验文件必须是非空 JSON 对象，且每个预设至少包含以下字段。
+
+如果程序检测不到 `areas.json`，会自动创建一个名为“示例跑道 (自动创建)”的独立示例文件。该示例不使用项目内现有区域坐标，创建后可以直接在文件中替换或添加自己的区域。
 
 ```json
 {
@@ -139,7 +141,7 @@ ldconsole.exe locate --index <模拟器索引> --LLI <经度>,<纬度>
 - `offset_ew` 是东西方向偏移，正数向东，负数向西。
 - 两个偏移字段可以省略，程序会按 `0.0` 处理。
 
-文件缺失、JSON 格式错误或坐标字段缺失时，程序会在启动阶段报告错误。
+JSON 格式错误或坐标字段缺失时，程序会在启动阶段报告错误。自动创建文件失败时，也会显示对应的文件系统错误。
 
 ## 参数说明
 
@@ -205,7 +207,7 @@ ldconsole.exe locate --index <模拟器索引> --LLI <经度>,<纬度>
 
 ### 启动时找不到预设
 
-确认 `areas.json` 与脚本在同一目录，并且 JSON 编码为 UTF-8。预设名称和坐标字段必须符合上面的格式。
+程序会在脚本目录自动创建 `areas.json`。如果创建失败，请确认目录可写；已有文件则需使用 UTF-8 编码，预设名称和坐标字段必须符合上面的格式。
 
 ### GUI 无法启动
 
@@ -218,12 +220,20 @@ ldconsole.exe locate --index <模拟器索引> --LLI <经度>,<纬度>
 ## 项目文件
 
 ```text
-track_simulation_controller.py  主程序和 Tkinter 界面
-areas.json                     坐标预设
+track_simulation_controller.py  Tkinter 界面和应用入口
+geo_utils.py                   地理计算和路径插值
+ldplayer.py                    雷电模拟器控制台接口
+simulation.py                  模拟线程、暂停和手动定位
+settings.py                    路径和坐标预设加载
+sensor_simulation_ref/         离线传感器数据参考实现
+areas.json                    坐标预设
 track_sim_config.json          本机运行配置
 requirements.txt               Python 依赖
+.github/workflows/             Windows x64 自动发布工作流
 .venv/                         本地虚拟环境，不提交到 Git
 ```
+
+程序入口保留在 `track_simulation_controller.py`，其余模块按职责拆分，便于单独测试和后续维护。
 
 ## 开发检查
 
