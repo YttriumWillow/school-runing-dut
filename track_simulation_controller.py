@@ -10,9 +10,12 @@ from geopy.point import Point
 import queue  # 导入队列库，用于线程安全通信
 import os     # 导入 os 库用于拼接路径
 import json   # 导入 json 用于保存/加载设置
+import sys
 
-# 配置文件路径固定为脚本所在目录，避免从其他工作目录启动时读取失败
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# 配置文件路径固定为脚本目录；打包后使用 exe 所在目录
+BASE_DIR = os.path.dirname(
+    os.path.abspath(sys.executable if getattr(sys, "frozen", False) else __file__)
+)
 CONFIG_FILE = os.path.join(BASE_DIR, "track_sim_config.json")
 AREAS_FILE = os.path.join(BASE_DIR, "areas.json")
 

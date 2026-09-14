@@ -1,0 +1,62 @@
+name: Windows x64 Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+          cache: pip
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Build executable
+        shell: pwsh
+        run: |
+          python -m PyInstaller `
+            --noconfirm `
+            --clean `
+            --onefile `
+            --windowed `
+            --name school-runing-dut `
+            --add-data "areas.json;." `
+            track_simulation_controller.py
+
+      - name: Assemble release package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-package | Out-Null
+          Copy-Item dist\school-runing-dut.exe release-package\
+          Copy-Item areas.json release-package\
+          Copy-Item README.md release-package\
+          Compress-Archive -Path release-package\* -DestinationPath school-runing-dut-windows-x64.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.0.${{ github.run_number }}
+          name: Windows x64 v0.0.${{ github.run_number }}
+          generate_release_notes: true
+          files: |
+            school-runing-dut-windows-x64.zip
+            dist/school-runing-dut.exe

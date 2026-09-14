@@ -72,6 +72,18 @@ python .\track_simulation_controller.py
 .\.venv\Scripts\python.exe .\track_simulation_controller.py
 ```
 
+## 自动发布 Windows x64 版本
+
+仓库包含 `.github/workflows/windows-release.yml`。向 `main` 分支推送后，GitHub Actions 会在 Windows x64 runner 上：
+
+1. 创建 Python 3.12 x64 环境；
+2. 安装 `requirements.txt` 和 PyInstaller；
+3. 将程序打包为无控制台窗口的单文件 `.exe`；
+4. 把 `areas.json` 和 README 一起放入 ZIP；
+5. 自动创建 GitHub Release，并上传 `.exe` 和 ZIP。
+
+也可以在 GitHub Actions 页面手动运行 `Windows x64 Release` 工作流。发布包中的 `track_sim_config.json` 会在首次运行时自动生成，个人路径和位置配置不会被打包进公开 Release。
+
 ## 雷电模拟器配置
 
 在程序的“模拟器设置”中填写雷电模拟器安装目录，例如：
