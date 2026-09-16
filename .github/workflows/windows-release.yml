@@ -40,6 +40,8 @@ jobs:
             --windowed `
             --name school-runing-dut `
             --icon exit-icon.ico `
+            --add-data "exit-icon.png;." `
+            --add-data "exit-icon.ico;." `
             track_simulation_controller.py
 
       - name: Assemble release package
@@ -47,6 +49,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release-package | Out-Null
           Copy-Item dist\school-runing-dut.exe release-package\
+          Copy-Item exit-icon.png release-package\
           Copy-Item exit-icon.ico release-package\
           Copy-Item README.md release-package\
           Compress-Archive -Path release-package\* -DestinationPath school-runing-dut-windows-x64.zip

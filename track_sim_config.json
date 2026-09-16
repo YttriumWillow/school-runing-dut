@@ -1,0 +1,14 @@
+{
+    "ld_folder_path": "D:/Program Files/leidian/LDPlayer14",
+    "offset_ns": "0.0",
+    "offset_ew": "0.0",
+    "last_preset": "\u793a\u4f8b\u8dd1\u9053 (\u81ea\u52a8\u521b\u5efa)",
+    "last_known_location": null,
+    "use_random_offset": true,
+    "random_offset_chance": "13",
+    "random_offset_range": "0.8",
+    "use_random_pace": true,
+    "base_pace": "6.4",
+    "pace_variability": "0.5",
+    "pace_smoothness": "27"
+}

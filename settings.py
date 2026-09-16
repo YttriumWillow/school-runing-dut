@@ -9,9 +9,11 @@ import sys
 BASE_DIR = os.path.dirname(
     os.path.abspath(sys.executable if getattr(sys, "frozen", False) else __file__)
 )
+RESOURCE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 CONFIG_FILE = os.path.join(BASE_DIR, "track_sim_config.json")
 AREAS_FILE = os.path.join(BASE_DIR, "areas.json")
-ICON_FILE = os.path.join(BASE_DIR, "exit-icon.ico")
+ICON_FILE = os.path.join(RESOURCE_DIR, "exit-icon.ico")
+ICON_PNG_FILE = os.path.join(RESOURCE_DIR, "exit-icon.png")
 
 DEFAULT_PRESETS = {
     "示例跑道 (自动创建)": {
