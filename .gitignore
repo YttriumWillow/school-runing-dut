@@ -29,4 +29,4 @@ dist/
 # 7. Personal Configs
 
 areas.json
-track_simlulation_controller.py
+track_sim_config.json
