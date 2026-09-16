@@ -25,3 +25,8 @@ dist/
 # 6. 数据和日志（如果您不希望版本控制这些）
 *.log
 *.sqlite
+
+# 7. Personal Configs
+
+areas.json
+track_simlulation_controller.py

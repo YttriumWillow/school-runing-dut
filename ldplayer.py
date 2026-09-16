@@ -16,13 +16,17 @@ def find_leidian_path():
     if psutil is None or os.name != "nt":
         return None
 
-    for proc in psutil.process_iter(["pid", "name", "exe"]):
+    for proc in psutil.process_iter(
+        attrs=["pid", "name", "exe"],
+        ad_value=None,
+    ):
         try:
-            if proc.info["name"] == "dnplayer.exe":
-                exe_path = proc.info["exe"]
+            process_name = proc.info.get("name")
+            exe_path = proc.info.get("exe")
+            if process_name == "dnplayer.exe":
                 if exe_path:
                     return os.path.dirname(exe_path)
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        except psutil.Error:
             pass
     return None
 

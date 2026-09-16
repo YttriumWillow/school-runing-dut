@@ -105,11 +105,11 @@ class TrackSimulatorApp:
         ttk.Button(path_frame, text="浏览...", command=self.browse_ld_folder).grid(row=0, column=3, padx=5, pady=5)
         
         ttk.Label(path_frame, text="模拟器索引:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
-        self.emulator_index = tk.StringVar(value="0")
+        self.emulator_index = tk.StringVar(value="1")
         ttk.Entry(path_frame, textvariable=self.emulator_index, width=10).grid(row=2, column=1, sticky="w", padx=5, pady=5)
         
-        self.skip_wait_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(path_frame, text="跳过 23 秒启动等待", variable=self.skip_wait_var).grid(row=2, column=2, sticky="w", padx=5, pady=5)
+        self.skip_wait_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(path_frame, text="跳过启动等待，直接开始移动", variable=self.skip_wait_var).grid(row=2, column=2, sticky="w", padx=5, pady=5)
         
         # (新) 从上次位置开始
         self.start_from_last_pos_var = tk.BooleanVar(value=True)
@@ -163,11 +163,11 @@ class TrackSimulatorApp:
         params_frame.pack(fill="x", expand=True)
         
         ttk.Label(params_frame, text="总距离 (米):").grid(row=0, column=0, sticky="w", padx=5, pady=5)
-        self.total_dist_m = tk.StringVar(value="10000")
+        self.total_dist_m = tk.StringVar(value="3000")
         ttk.Entry(params_frame, textvariable=self.total_dist_m, width=10).grid(row=0, column=1, padx=5, pady=5)
         
         ttk.Label(params_frame, text="路径点间距 (米):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.step_m = tk.StringVar(value="1.0")
+        self.step_m = tk.StringVar(value="0.5")
         ttk.Entry(params_frame, textvariable=self.step_m, width=10).grid(row=1, column=1, padx=5, pady=5)
         
         ttk.Label(params_frame, text="圆弧角度 (度):").grid(row=1, column=2, sticky="w", padx=5, pady=5)
@@ -183,12 +183,12 @@ class TrackSimulatorApp:
         self.random_pace_check.grid(row=0, column=0, sticky="w", padx=10, pady=5)
         
         ttk.Label(pace_smooth_frame, text="基础配速 (分钟/公里):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.pace_minkm = tk.StringVar(value="5.5")
+        self.pace_minkm = tk.StringVar(value="6.4")
         self.pace_entry = ttk.Entry(pace_smooth_frame, textvariable=self.pace_minkm, width=10)
         self.pace_entry.grid(row=1, column=1, padx=5, pady=5)
         
         ttk.Label(pace_smooth_frame, text="变异率 (± min/km):").grid(row=2, column=0, sticky="w", padx=5, pady=5)
-        self.variability_var = tk.StringVar(value="0.2")
+        self.variability_var = tk.StringVar(value="0.5")
         self.variability_entry = ttk.Entry(pace_smooth_frame, textvariable=self.variability_var, width=10)
         self.variability_entry.grid(row=2, column=1, padx=5, pady=5)
         
