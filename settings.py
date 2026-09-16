@@ -11,6 +11,7 @@ BASE_DIR = os.path.dirname(
 )
 CONFIG_FILE = os.path.join(BASE_DIR, "track_sim_config.json")
 AREAS_FILE = os.path.join(BASE_DIR, "areas.json")
+ICON_FILE = os.path.join(BASE_DIR, "exit-icon.ico")
 
 DEFAULT_PRESETS = {
     "示例跑道 (自动创建)": {

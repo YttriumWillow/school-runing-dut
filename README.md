@@ -79,7 +79,7 @@ python .\track_simulation_controller.py
 1. 创建 Python 3.12 x64 环境；
 2. 安装 `requirements.txt` 和 PyInstaller；
 3. 将程序打包为无控制台窗口的单文件 `.exe`；
-4. 把 `areas.json` 和 README 一起放入 ZIP；
+4. 把 README 一起放入 ZIP；
 5. 自动创建 GitHub Release，并上传 `.exe` 和 ZIP。
 
 也可以在 GitHub Actions 页面手动运行 `Windows x64 Release` 工作流。发布包中的 `track_sim_config.json` 会在首次运行时自动生成，个人路径和位置配置不会被打包进公开 Release。
@@ -115,7 +115,7 @@ ldconsole.exe locate --index <模拟器索引> --LLI <经度>,<纬度>
 
 `areas.json` 应和 `track_simulation_controller.py` 位于同一目录。程序启动时会读取它，并校验文件必须是非空 JSON 对象，且每个预设至少包含以下字段。
 
-如果程序检测不到 `areas.json`，会自动创建一个名为“示例跑道 (自动创建)”的独立示例文件。该示例不使用项目内现有区域坐标，创建后可以直接在文件中替换或添加自己的区域。
+如果程序检测不到 `areas.json`，会自动创建一个名为“示例跑道 (自动创建)”的独立示例文件。仓库和 Release 包都不内置个人区域预设；该示例仅在用户首次运行时生成，创建后可以直接在文件中替换或添加自己的区域。
 
 ```json
 {
@@ -226,10 +226,11 @@ ldplayer.py                    雷电模拟器控制台接口
 simulation.py                  模拟线程、暂停和手动定位
 settings.py                    路径和坐标预设加载
 sensor_simulation_ref/         离线传感器数据参考实现
-areas.json                    坐标预设
+areas.json                    本地坐标预设（不提交到仓库）
 track_sim_config.json          本机运行配置
 requirements.txt               Python 依赖
 .github/workflows/             Windows x64 自动发布工作流
+exit-icon.png / exit-icon.ico  应用图标
 .venv/                         本地虚拟环境，不提交到 Git
 ```
 

@@ -39,7 +39,7 @@ jobs:
             --onefile `
             --windowed `
             --name school-runing-dut `
-            --add-data "areas.json;." `
+            --icon exit-icon.ico `
             track_simulation_controller.py
 
       - name: Assemble release package
@@ -47,7 +47,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release-package | Out-Null
           Copy-Item dist\school-runing-dut.exe release-package\
-          Copy-Item areas.json release-package\
+          Copy-Item exit-icon.ico release-package\
           Copy-Item README.md release-package\
           Compress-Archive -Path release-package\* -DestinationPath school-runing-dut-windows-x64.zip
 

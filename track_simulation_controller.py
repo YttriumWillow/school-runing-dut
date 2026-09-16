@@ -1,4 +1,5 @@
 import json
+import os
 import queue
 import threading
 import tkinter as tk
@@ -9,7 +10,7 @@ from geopy.point import Point
 
 from geo_utils import interpolate_arc, interpolate_straight
 from ldplayer import find_leidian_path
-from settings import CONFIG_FILE, PRESETS
+from settings import CONFIG_FILE, ICON_FILE, PRESETS
 from simulation import (
     pause_event,
     run_simulation_thread,
@@ -28,6 +29,8 @@ class TrackSimulatorApp:
         self.root = root
         self.root.title("操场实时模拟控制器 (Tkinter版)")
         self.root.geometry("580x800") # (新) 调整窗口大小
+        if os.path.isfile(ICON_FILE):
+            self.root.iconbitmap(ICON_FILE)
         
         self.simulation_thread = None
         self.status_queue = queue.Queue() # 线程通信队列
