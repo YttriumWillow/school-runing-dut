@@ -28,7 +28,7 @@ class TrackSimulatorApp:
     def __init__(self, root):
         self.root = root
         self.root.title("操场实时模拟控制器 (Tkinter版)")
-        self.root.geometry("580x800") # (新) 调整窗口大小
+        self.root.geometry("900x610") # (新) 调整窗口大小
         if os.path.isfile(ICON_FILE):
             self.root.iconbitmap(ICON_FILE)
         if os.path.isfile(ICON_PNG_FILE):
@@ -47,60 +47,24 @@ class TrackSimulatorApp:
         self.initial_offset_ns = 0.0
         self.initial_offset_ew = 0.0
         
-        # --- (新) 创建滚动条框架 ---
-        main_canvas = tk.Canvas(root)
-        scrollbar = ttk.Scrollbar(root, orient="vertical", command=main_canvas.yview)
-        main_canvas.configure(yscrollcommand=scrollbar.set)
-        
-        scrollbar.pack(side="right", fill="y")
-        main_canvas.pack(side="left", fill="both", expand=True)
-        
-        # 这个 frame 包含所有内容
-        self.scrollable_frame = ttk.Frame(main_canvas, padding="10")
-        
-        # (新) 修复: 存储 canvas window item ID
-        self.canvas_window_item = main_canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        
-        # (新) 修复: 分离 canvas 和 frame 的 configure 事件
-        def on_frame_configure(event):
-            # 当 frame 内部大小改变时, 更新 scrollregion
-            main_canvas.configure(scrollregion=main_canvas.bbox("all"))
-        
-        def on_canvas_configure(event):
-            # 当 canvas 窗口大小改变时, 改变 frame 的宽度
-            main_canvas.itemconfig(self.canvas_window_item, width=event.width)
+        # 使用普通容器布局，避免窗口内容出现垂直滚动。
+        self.scrollable_frame = ttk.Frame(root, padding="10")
+        self.scrollable_frame.pack(fill="both", expand=True)
 
-        self.scrollable_frame.bind("<Configure>", on_frame_configure)
-        main_canvas.bind("<Configure>", on_canvas_configure)
-        
-        # (新) 绑定鼠标滚轮
-        def _on_mouse_wheel(event):
-            # (新) 跨平台滚轮支持
-            delta = 0
-            if event.num == 4: # Linux scroll up
-                delta = -1
-            elif event.num == 5: # Linux scroll down
-                delta = 1
-            elif event.delta > 0: # Windows/macOS scroll up
-                delta = -1
-            elif event.delta < 0: # Windows/macOS scroll down
-                delta = 1
-            
-            main_canvas.yview_scroll(delta, "units")
-        
-        # 绑定到根窗口，使其随处可用
-        self.mouse_wheel_binding_id_1 = self.root.bind_all("<MouseWheel>", _on_mouse_wheel)
-        self.mouse_wheel_binding_id_2 = self.root.bind_all("<Button-4>", _on_mouse_wheel)
-        self.mouse_wheel_binding_id_3 = self.root.bind_all("<Button-5>", _on_mouse_wheel)
-
-        # --- --- --- --- --- --- ---
-        
+        columns_frame = ttk.Frame(self.scrollable_frame)
+        columns_frame.pack(fill="both", expand=True)
+        columns_frame.grid_columnconfigure(0, weight=1)
+        columns_frame.grid_columnconfigure(1, weight=0)
+        left_column = ttk.Frame(columns_frame)
+        left_column.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        parameter_column = ttk.Frame(columns_frame)
+        parameter_column.grid(row=0, column=1, sticky="n", padx=(5, 0))
         
         # --- 创建控件 ---
-        # (新) 所有控件的父级改为 self.scrollable_frame
+        # 所有控件的父级为 self.scrollable_frame
         
         # 1. 模拟器设置
-        path_frame = ttk.Labelframe(self.scrollable_frame, text="模拟器设置", padding="5")
+        path_frame = ttk.Labelframe(left_column, text="模拟器设置", padding="5")
         path_frame.pack(fill="x", expand=True)
         
         # (新) 修复布局
@@ -124,7 +88,7 @@ class TrackSimulatorApp:
         path_frame.grid_columnconfigure(1, weight=1) # (新) 让 Entry 扩展
 
         # 2. (新) 预设
-        preset_frame = ttk.Labelframe(self.scrollable_frame, text="坐标预设", padding="5")
+        preset_frame = ttk.Labelframe(left_column, text="坐标预设", padding="5")
         preset_frame.pack(fill="x", expand=True, pady=5)
         
         ttk.Label(preset_frame, text="选择预设:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
@@ -134,8 +98,8 @@ class TrackSimulatorApp:
         self.preset_menu.grid(row=0, column=1, padx=5, pady=5)
         self.preset_menu.bind("<<ComboboxSelected>>", self.on_preset_select)
         
-        # 3. 坐标输入
-        self.coords_frame = ttk.Labelframe(self.scrollable_frame, text="坐标 (WGS-84)", padding="5")
+        # 3. 坐标输入和右侧模拟参数
+        self.coords_frame = ttk.Labelframe(left_column, text="坐标 (WGS-84)", padding="5")
         self.coords_frame.pack(fill="x", expand=True, pady=5)
         
         self.coord_entries = {}
@@ -165,80 +129,80 @@ class TrackSimulatorApp:
         self.coords_frame.grid_columnconfigure(4, weight=1)
 
         # 4. 模拟参数
-        params_frame = ttk.Labelframe(self.scrollable_frame, text="模拟参数", padding="5")
+        params_frame = ttk.Labelframe(parameter_column, text="模拟参数", padding="3")
         params_frame.pack(fill="x", expand=True)
         
-        ttk.Label(params_frame, text="总距离 (米):").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(params_frame, text="总距离 (米):").grid(row=0, column=0, sticky="w", padx=3, pady=3)
         self.total_dist_m = tk.StringVar(value="3000")
-        ttk.Entry(params_frame, textvariable=self.total_dist_m, width=10).grid(row=0, column=1, padx=5, pady=5)
+        ttk.Entry(params_frame, textvariable=self.total_dist_m, width=8).grid(row=0, column=1, padx=3, pady=3)
         
-        ttk.Label(params_frame, text="路径点间距 (米):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(params_frame, text="路径点间距 (米):").grid(row=1, column=0, sticky="w", padx=3, pady=3)
         self.step_m = tk.StringVar(value="0.5")
-        ttk.Entry(params_frame, textvariable=self.step_m, width=10).grid(row=1, column=1, padx=5, pady=5)
+        ttk.Entry(params_frame, textvariable=self.step_m, width=8).grid(row=1, column=1, padx=3, pady=3)
         
-        ttk.Label(params_frame, text="圆弧角度 (度):").grid(row=1, column=2, sticky="w", padx=5, pady=5)
+        ttk.Label(params_frame, text="圆弧角度 (度):").grid(row=2, column=0, sticky="w", padx=3, pady=3)
         self.arc_degrees = tk.StringVar(value="170.0") 
-        ttk.Entry(params_frame, textvariable=self.arc_degrees, width=10).grid(row=1, column=3, padx=5, pady=5)
+        ttk.Entry(params_frame, textvariable=self.arc_degrees, width=8).grid(row=2, column=1, padx=3, pady=3)
         
         # 5. 平滑配速
-        pace_smooth_frame = ttk.Labelframe(self.scrollable_frame, text="平滑配速 (反作弊)", padding="5")
-        pace_smooth_frame.pack(fill="x", expand=True, pady=5)
+        pace_smooth_frame = ttk.Labelframe(parameter_column, text="平滑配速 (反作弊)", padding="3")
+        pace_smooth_frame.pack(fill="x", expand=True, pady=(5, 0))
         
         self.random_pace_var = tk.BooleanVar(value=True)
         self.random_pace_check = ttk.Checkbutton(pace_smooth_frame, text="启用平滑配速", variable=self.random_pace_var, command=self.toggle_pace_entries)
-        self.random_pace_check.grid(row=0, column=0, sticky="w", padx=10, pady=5)
+        self.random_pace_check.grid(row=0, column=0, columnspan=2, sticky="w", padx=3, pady=3)
         
-        ttk.Label(pace_smooth_frame, text="基础配速 (分钟/公里):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(pace_smooth_frame, text="基础配速 (分钟/公里):").grid(row=1, column=0, sticky="w", padx=3, pady=3)
         self.pace_minkm = tk.StringVar(value="6.4")
-        self.pace_entry = ttk.Entry(pace_smooth_frame, textvariable=self.pace_minkm, width=10)
-        self.pace_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.pace_entry = ttk.Entry(pace_smooth_frame, textvariable=self.pace_minkm, width=8)
+        self.pace_entry.grid(row=1, column=1, padx=3, pady=3)
         
-        ttk.Label(pace_smooth_frame, text="变异率 (± min/km):").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(pace_smooth_frame, text="变异率 (± min/km):").grid(row=2, column=0, sticky="w", padx=3, pady=3)
         self.variability_var = tk.StringVar(value="0.5")
-        self.variability_entry = ttk.Entry(pace_smooth_frame, textvariable=self.variability_var, width=10)
-        self.variability_entry.grid(row=2, column=1, padx=5, pady=5)
+        self.variability_entry = ttk.Entry(pace_smooth_frame, textvariable=self.variability_var, width=8)
+        self.variability_entry.grid(row=2, column=1, padx=3, pady=3)
         
-        ttk.Label(pace_smooth_frame, text="变化平滑度 (秒):").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(pace_smooth_frame, text="变化平滑度 (秒):").grid(row=3, column=0, sticky="w", padx=3, pady=3)
         self.smoothness_var = tk.StringVar(value="27")
-        self.smoothness_entry = ttk.Entry(pace_smooth_frame, textvariable=self.smoothness_var, width=10)
-        self.smoothness_entry.grid(row=3, column=1, padx=5, pady=5)
+        self.smoothness_entry = ttk.Entry(pace_smooth_frame, textvariable=self.smoothness_var, width=8)
+        self.smoothness_entry.grid(row=3, column=1, padx=3, pady=3)
 
         # 6. 路径微调
-        offset_frame = ttk.Labelframe(self.scrollable_frame, text="路径微调 (偏移)", padding="5")
-        offset_frame.pack(fill="x", expand=True, pady=(0, 5))
+        offset_frame = ttk.Labelframe(parameter_column, text="路径微调 (偏移)", padding="3")
+        offset_frame.pack(fill="x", expand=True, pady=(5, 0))
 
-        ttk.Label(offset_frame, text="北/南 偏移 (米):").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(offset_frame, text="北/南 偏移 (米):").grid(row=0, column=0, sticky="w", padx=3, pady=3)
         self.offset_ns = tk.StringVar(value="0.0")
-        self.offset_ns_entry = ttk.Entry(offset_frame, textvariable=self.offset_ns, width=10)
-        self.offset_ns_entry.grid(row=0, column=1, padx=5, pady=5)
-        ttk.Label(offset_frame, text="(正数向北, 负数向南)").grid(row=0, column=2, sticky="w", padx=5, pady=5)
+        self.offset_ns_entry = ttk.Entry(offset_frame, textvariable=self.offset_ns, width=8)
+        self.offset_ns_entry.grid(row=0, column=1, padx=3, pady=3)
+        ttk.Label(offset_frame, text="(正北/负南)").grid(row=0, column=2, sticky="w", padx=3, pady=3)
 
-        ttk.Label(offset_frame, text="东/西 偏移 (米):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(offset_frame, text="东/西 偏移 (米):").grid(row=1, column=0, sticky="w", padx=3, pady=3)
         self.offset_ew = tk.StringVar(value="0.0")
-        self.offset_ew_entry = ttk.Entry(offset_frame, textvariable=self.offset_ew, width=10)
-        self.offset_ew_entry.grid(row=1, column=1, padx=5, pady=5)
-        ttk.Label(offset_frame, text="(正数向东, 负数向西)").grid(row=1, column=2, sticky="w", padx=5, pady=5)
+        self.offset_ew_entry = ttk.Entry(offset_frame, textvariable=self.offset_ew, width=8)
+        self.offset_ew_entry.grid(row=1, column=1, padx=3, pady=3)
+        ttk.Label(offset_frame, text="(正东/负西)").grid(row=1, column=2, sticky="w", padx=3, pady=3)
 
         # 7. 随机偏移 (GPS 噪声)
-        random_frame = ttk.Labelframe(self.scrollable_frame, text="随机偏移 (GPS 噪声)", padding="5")
-        random_frame.pack(fill="x", expand=True, pady=(0, 10))
+        random_frame = ttk.Labelframe(parameter_column, text="随机偏移 (GPS 噪声)", padding="3")
+        random_frame.pack(fill="x", expand=True, pady=(5, 0))
         
         self.random_offset_var = tk.BooleanVar(value=True)
         self.random_offset_check = ttk.Checkbutton(random_frame, text="启用随机偏移", variable=self.random_offset_var, command=self.toggle_random_offset_entries)
-        self.random_offset_check.grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        self.random_offset_check.grid(row=0, column=0, columnspan=4, sticky="w", padx=3, pady=3)
 
-        ttk.Label(random_frame, text="偏移几率 (%):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        ttk.Label(random_frame, text="偏移几率 (%):").grid(row=1, column=0, sticky="w", padx=3, pady=3)
         self.random_offset_chance = tk.StringVar(value="13")
-        self.random_offset_chance_entry = ttk.Entry(random_frame, textvariable=self.random_offset_chance, width=10)
-        self.random_offset_chance_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.random_offset_chance_entry = ttk.Entry(random_frame, textvariable=self.random_offset_chance, width=8)
+        self.random_offset_chance_entry.grid(row=1, column=1, padx=3, pady=3)
         
-        ttk.Label(random_frame, text="左/右最大偏移 (米):").grid(row=1, column=2, sticky="w", padx=5, pady=5)
+        ttk.Label(random_frame, text="左/右最大偏移 (米):").grid(row=2, column=0, sticky="w", padx=3, pady=3)
         self.random_offset_range = tk.StringVar(value="0.8")
-        self.random_offset_range_entry = ttk.Entry(random_frame, textvariable=self.random_offset_range, width=10)
-        self.random_offset_range_entry.grid(row=1, column=3, padx=5, pady=5)
+        self.random_offset_range_entry = ttk.Entry(random_frame, textvariable=self.random_offset_range, width=8)
+        self.random_offset_range_entry.grid(row=2, column=1, padx=3, pady=3)
 
         # 8. (新) 手动控制
-        manual_frame = ttk.Labelframe(self.scrollable_frame, text="手动控制 (可在模拟时使用方向键)", padding="5")
+        manual_frame = ttk.Labelframe(left_column, text="手动控制 (可在模拟时使用方向键)", padding="5")
         manual_frame.pack(fill="x", expand=True, pady=(0, 10))
         
         self.manual_buttons = {}
@@ -259,7 +223,7 @@ class TrackSimulatorApp:
         manual_frame.grid_columnconfigure(2, weight=1)
 
         # 9. 控制按钮
-        button_frame = ttk.Frame(self.scrollable_frame, padding="5")
+        button_frame = ttk.Frame(left_column, padding="5")
         button_frame.pack(fill="x", expand=True)
         
         self.start_button = ttk.Button(button_frame, text="开始模拟", command=self.start_simulation)
@@ -276,7 +240,7 @@ class TrackSimulatorApp:
         
         # 10. 状态显示
         status_frame = ttk.Labelframe(self.scrollable_frame, text="状态", padding="5")
-        status_frame.pack(fill="both", expand=True, pady=10)
+        status_frame.pack(fill="x", expand=False, pady=10)
         
         self.status_label = ttk.Label(status_frame, text="状态: 空闲", foreground="green")
         self.status_label.pack(anchor="w", padx=5, pady=2)
@@ -732,11 +696,6 @@ class TrackSimulatorApp:
         
         # (新) 解绑
         self.unbind_keys()
-        if hasattr(self, 'mouse_wheel_binding_id_1'):
-            self.root.unbind_all("<MouseWheel>")
-            self.root.unbind_all("<Button-4>")
-            self.root.unbind_all("<Button-5>")
-            
         self.root.destroy()
 
 # -----------------------------------------------------------------

@@ -2,7 +2,8 @@
 
 一个基于 Python/Tkinter 和雷电模拟器的轨迹模拟控制器。程序根据四个坐标点生成由直道和圆弧组成的闭合路径，并通过雷电模拟器控制台接口向模拟器发送位置。
 
-> 请仅在获得授权的测试环境中使用本项目，并遵守学校、平台及当地相关规定。项目不保证任何第三方应用对模拟定位数据的接受情况。
+> 请仅在获得授权的测试环境中使用本项目，并遵守相关规定。项目不保证任何第三方应用对模拟定位数据的接受情况。
+> 本项目继承自 
 
 ## 功能
 
@@ -24,41 +25,21 @@
 - 保存最后位置，下次启动时可从最近路径点继续。
 - 自动检测正在运行的雷电模拟器目录。
 - 坐标预设从脚本同目录的 `areas.json` 加载，可自行添加区域。
-- 使用雷电模拟器 14 的 `ldconsole.exe` 接口启动实例并设置位置。
+- 使用雷电模拟器 14 的 `ldconsole.exe` 接口启动实例并设置位置。（兼容雷电模拟器 9 `dnconsole.exe`）
 
 ## 运行环境
 
 - Windows
+- 雷电模拟器 14 / 9(不保证兼容)
+- 雷电模拟器实例已创建，且索引与程序中填写的索引一致（默认使用索引 `1`，也就是多开器中的第二个）
+
+开发时请使用：
+
 - Python 3.10 或更高版本
-- 雷电模拟器 14
-- 雷电模拟器实例已创建，且索引与程序中填写的索引一致
 
 程序使用 Python 自带的 Tkinter 图形界面。Windows 官方 Python 安装包通常已经包含 Tkinter。
 
-## 安装
-
-在项目目录打开 PowerShell：
-
-```powershell
-cd D:\path\to\school-runing-dut
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-如果 PowerShell 不允许执行激活脚本，可以不激活环境，直接使用虚拟环境解释器：
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
-
-当前依赖见 [requirements.txt](./requirements.txt)：
-
-- `geopy`：计算地理距离、方位和插值点
-- `psutil`：自动检测雷电模拟器进程
-
-## 启动
+## 项目启动
 
 激活虚拟环境后运行：
 
@@ -172,7 +153,7 @@ JSON 格式错误或坐标字段缺失时，程序会在启动阶段报告错误
 
 - 点击界面中的上下左右按钮；
 - 使用键盘方向键；
-- 每次移动默认 `5` 米。
+- 每次移动默认 `0.5` 米。
 
 点击“继续”后，程序回到自动路径，并以暂停前的路径点作为恢复基准。
 
@@ -227,7 +208,7 @@ simulation.py                  模拟线程、暂停和手动定位
 settings.py                    路径和坐标预设加载
 sensor_simulation_ref/         离线传感器数据参考实现
 areas.json                    本地坐标预设（不提交到仓库）
-track_sim_config.json          本机运行配置
+track_sim_config.json          上一次运行配置（不提交）
 requirements.txt               Python 依赖
 .github/workflows/             Windows x64 自动发布工作流
 exit-icon.png / exit-icon.ico  应用图标
@@ -235,12 +216,3 @@ exit-icon.png / exit-icon.ico  应用图标
 ```
 
 程序入口保留在 `track_simulation_controller.py`，其余模块按职责拆分，便于单独测试和后续维护。
-
-## 开发检查
-
-修改代码后可以运行：
-
-```powershell
-.\.venv\Scripts\python.exe -m py_compile .\track_simulation_controller.py
-git diff --check
-```
