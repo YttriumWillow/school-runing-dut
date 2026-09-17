@@ -3,7 +3,8 @@
 一个基于 Python/Tkinter 和雷电模拟器的轨迹模拟控制器。程序根据四个坐标点生成由直道和圆弧组成的闭合路径，并通过雷电模拟器控制台接口向模拟器发送位置。
 
 > 请仅在获得授权的测试环境中使用本项目，并遵守相关规定。项目不保证任何第三方应用对模拟定位数据的接受情况。
-> 本项目继承自 
+
+> 本项目继承自 [@tianxingleo/school-runing-dut](https://github.com/tianxingleo/school-runing-dut) 增加了对新一代雷电模拟器 14 的支持，并且改动了 UI 设计，拆分了功能模块，并添加了一个 icon。
 
 ## 功能
 
@@ -214,5 +215,27 @@ requirements.txt               Python 依赖
 exit-icon.png / exit-icon.ico  应用图标
 .venv/                         本地虚拟环境，不提交到 Git
 ```
+
+### 传感器检测 App 的方向与海拔
+
+参考项目使用 Frida 的 `SystemSensorManager$SensorEventQueue` 方案，把方向、
+气压（由海拔换算）和重力值写入指定传感器检测 App 的传感器事件。当前程序只会
+附加到通过 `SENSOR_TARGET_PACKAGE` 明确指定、且已经运行的进程，不会附加
+`system_server` 或任意未指定的 App。
+
+在启动程序前设置目标包名，例如：
+
+```powershell
+$env:SENSOR_TARGET_PACKAGE = "com.example.sensordetector"
+```
+
+模拟器需要 root ADB、运行中的 `frida-server` 以及 `frida==16.7.19`。如果条件
+不满足，程序仍会使用 `ldconsole.exe action` 的外部注入路径；方向和海拔是否能被
+当前 LDPlayer 版本直接暴露，则取决于该版本对 `call.compass` 和 `call.altitude`
+的支持。
+
+加速度的实现与上述方向/海拔方案严格分离：`stride_model.py` 生成参考项目风格的
+50 Hz 步态波形，后台线程每 20 ms 仅调用一次 `ldconsole.exe action --key
+call.gravity`。Frida hook 不会改写 `TYPE_ACCELEROMETER`。
 
 程序入口保留在 `track_simulation_controller.py`，其余模块按职责拆分，便于单独测试和后续维护。

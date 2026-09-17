@@ -36,7 +36,9 @@ class TrackSimulatorApp:
             self.root.iconphoto(True, self._window_icon)
         
         self.simulation_thread = None
-        self.status_queue = queue.Queue() # 线程通信队列
+        # 线程通信队列：后台模拟线程不断向这里发消息，主线程再根据消息更新 UI。
+        # 这样可以避免在 Tkinter 主线程中直接执行耗时的 locate 命令和等待逻辑。
+        self.status_queue = queue.Queue()
         
         # (新) 手动控制状态
         self.manual_step_m = 5.0 # 每次手动点击移动 5 米
@@ -137,7 +139,7 @@ class TrackSimulatorApp:
         ttk.Entry(params_frame, textvariable=self.total_dist_m, width=8).grid(row=0, column=1, padx=3, pady=3)
         
         ttk.Label(params_frame, text="路径点间距 (米):").grid(row=1, column=0, sticky="w", padx=3, pady=3)
-        self.step_m = tk.StringVar(value="0.5")
+        self.step_m = tk.StringVar(value="1")
         ttk.Entry(params_frame, textvariable=self.step_m, width=8).grid(row=1, column=1, padx=3, pady=3)
         
         ttk.Label(params_frame, text="圆弧角度 (度):").grid(row=2, column=0, sticky="w", padx=3, pady=3)
@@ -296,14 +298,15 @@ class TrackSimulatorApp:
         if self.last_sent_point is None:
             self.status_label.config(text="错误: 未知当前位置", foreground="red")
             return
-            
-        # 1. 计算新点
+
+        # 这里不直接在主线程中调用 locate，而是先在地理坐标系统中计算新的目标点，
+        # 然后开启一个子线程发送定位命令。这样用户按键时不会卡住 Tkinter GUI。
         new_point = geodesic(meters=self.manual_step_m).destination(self.last_sent_point, bearing=bearing)
-        
-        # 2. 更新 last_sent_point (重要!)
-        self.last_sent_point = new_point 
-        
-        # 3. 启动一个临时线程来发送命令
+
+        # 把最新位置写回 last_sent_point，下一次继续按键时会从当前点继续偏移，
+        # 而不是每次从原始起点出发。
+        self.last_sent_point = new_point
+
         threading.Thread(
             target=send_manual_location,
             args=(self, new_point.latitude, new_point.longitude),
@@ -445,38 +448,43 @@ class TrackSimulatorApp:
             
             self.status_label.config(text=f"正在计算单圈路径...", foreground="blue")
 
-            # 4. **恢复为正确的几何**
-            # (P1 -> P2 直道), (P2 -> P3 弯道), (P3 -> P4 直道), (P4 -> P1 弯道)
-            
+            # 4. 恢复为正确的几何：
+            # 轨迹被拆成四段：P1->P2 直线、P2->P3 弧线、P3->P4 直线、P4->P1 弧线。
+            # 这使得闭合跑道可以按“直道 + 弯道 + 直道 + 弯道”的顺序拼接，
+            # 比单纯用四边形边线或平均插值更加符合真实操场/赛道结构。
             s1_points, s1_len = interpolate_straight(p1, p2, step_m)
             a1_points, a1_len = interpolate_arc(p2, p3, step_m, arc_degrees)
             s2_points, s2_len = interpolate_straight(p3, p4, step_m)
             a2_points, a2_len = interpolate_arc(p4, p1, step_m, arc_degrees)
 
             single_lap_points = s1_points + a1_points + s2_points + a2_points
-            
-            if not single_lap_points: raise Exception("计算出的路径点为0，请检查坐标。")
-            
-            # 5. 计算完整路径
-            total_points_needed = int(total_dist_m / step_m)
-            full_path_points = []
-            lap_point_count = len(single_lap_points)
 
-            for i in range(total_points_needed):
-                full_path_points.append(single_lap_points[i % lap_point_count])
-            
-            # (新) 6. 查找最近点 (防漂移)
+            if not single_lap_points: raise Exception("计算出的路径点为0，请检查坐标。")
+
+            lap_point_count = len(single_lap_points)
+            lap_start_index = 0
+
+            # 6. 通过“最近点回退”修正起点，避免每次启动时从零点重新跑起，
+            # 使程序在重启后更稳定地从上次位置继续。
             if self.start_from_last_pos_var.get() and self.last_known_location:
                 try:
                     last_point_obj = Point(latitude=self.last_known_location[0], longitude=self.last_known_location[1])
-                    start_index = self.find_closest_start_index(full_path_points, last_point_obj)
-                    
-                    # 重排列表
-                    full_path_points = full_path_points[start_index:] + full_path_points[:start_index]
+                    lap_start_index = self.find_closest_start_index(single_lap_points, last_point_obj)
                     self.status_label.config(text="从上次位置恢复...", foreground="blue")
                 except Exception as e:
                     self.status_label.config(text=f"无法从上次位置恢复: {e}", foreground="orange")
                     # 即使失败，也继续正常运行
+
+            # 关键修正：先在单圈路径上旋转起点，再按整圈重复拼接，
+            # 确保第二圈与上一圈的边界始终在同一条赛道段上，避免跨越到对面的直道。
+            rotated_lap_points = single_lap_points[lap_start_index:] + single_lap_points[:lap_start_index]
+
+            # 5. 计算完整路径：
+            # 如果总距离大于一圈长度，就重复利用单圈点序列，直到长度覆盖需求。
+            total_points_needed = int(total_dist_m / step_m)
+            full_path_points = []
+            for i in range(total_points_needed):
+                full_path_points.append(rotated_lap_points[i % lap_point_count])
             
             # 7. 启动线程
             self.start_button.config(state=tk.DISABLED)
@@ -558,9 +566,11 @@ class TrackSimulatorApp:
         """
         主 GUI 线程调用的函数，用于检查来自模拟线程的消息。
         """
+        # 这是典型的 producer-consumer 模式：
+        # worker 线程将状态事件放到队列中，GUI 线程在每个 100 ms 循环中取出并更新按钮/标签。
         try:
             msg_type, msg, color_or_coords = self.status_queue.get_nowait()
-            
+
             if msg_type == "ERROR":
                 messagebox.showerror("线程错误", msg)
                 self.status_label.config(text=f"错误: {msg}", foreground="red")
@@ -578,17 +588,15 @@ class TrackSimulatorApp:
                 self.status_label.config(text=msg, foreground=color_or_coords)
                 self.coords_label.config(text="")
                 self.reset_gui_state()
-            # (新) 处理跳过按钮
             elif msg_type == "ENABLE_SKIP":
                 new_state = tk.NORMAL if color_or_coords else tk.DISABLED
                 self.skip_wait_button.config(state=new_state)
-                # (新) 增加 update_idletasks 确保按钮立即刷新
-                self.root.update_idletasks() 
+                self.root.update_idletasks()
 
         except queue.Empty:
-            pass # 队列为空
-        
-        self.root.after(100, self.check_queue) # 100ms 轮询一次
+            pass
+
+        self.root.after(100, self.check_queue)
 
     def reset_gui_state(self):
         """ 重置GUI按钮状态 """

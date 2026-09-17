@@ -5,7 +5,11 @@ import os
 import sys
 
 
-# Keep data files next to the script, or next to the executable when frozen.
+# 资源文件与配置要和应用的实际运行目录保持一致：
+# - 打包为 exe 时，工作目录可能变成临时解压目录；
+# - 普通脚本运行时，则直接使用项目根目录。
+# 这样既能保证 areas.json/track_sim_config.json 能落在正确位置，
+# 也能在打包后仍找到图标资源。
 BASE_DIR = os.path.dirname(
     os.path.abspath(sys.executable if getattr(sys, "frozen", False) else __file__)
 )

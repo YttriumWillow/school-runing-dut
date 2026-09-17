@@ -8,6 +8,8 @@ from geopy.point import Point
 
 def calculate_initial_bearing(point_a: Point, point_b: Point) -> float:
     """Calculate the initial bearing from point_a to point_b."""
+    # 大地测量里，计算两个经纬度点的航向时，通常用初始方位角公式。
+    # 这里使用球面三角法，得到的是从 A 点出发到 B 点的方向角（0°=北，90°=东）。
     lat1 = math.radians(point_a.latitude)
     lon1 = math.radians(point_a.longitude)
     lat2 = math.radians(point_b.latitude)
@@ -53,6 +55,11 @@ def interpolate_arc(
     arc_degrees_total: float
 ) -> tuple[list[tuple[Point, float]], float]:
     """Generate points along an arc and return its length."""
+    # 弯道轨迹的核心思路：
+    # 1. 先把起点和终点看成弦；
+    # 2. 计算这条弦对应的圆心和半径；
+    # 3. 再沿圆周按固定长度间隔采样点。
+    # 这样可以把一个看似不规则的 GPS 弧线，近似成“圆心 + 半径 + 角度”的可控路径。
     points = []
     chord_len = geodesic(p_start, p_end).meters
     if chord_len == 0:
@@ -86,6 +93,8 @@ def interpolate_arc(
         new_point = geodesic(meters=radius).destination(
             point=true_center, bearing=current_bearing
         )
+        # 运行方向通常与当前切线方向一致，
+        # 这里将半径方向转成“沿轨迹前进”的方向，用于随机偏移和后续判断行进方向。
         travel_bearing = (current_bearing - 90 + 360) % 360
         points.append((new_point, travel_bearing))
         last_travel_bearing = travel_bearing
